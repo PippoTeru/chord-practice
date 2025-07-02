@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.23';
+    static VERSION = '0.1.24';
     
     constructor() {
         this.chords = [
@@ -1600,7 +1600,7 @@ class ChordPracticeApp {
         
         // リバーブセンド（ウェット信号用）
         this.reverbSend = this.audioContext.createGain();
-        this.reverbSend.gain.setValueAtTime(0.25, this.audioContext.currentTime); // 25%のリバーブ
+        this.reverbSend.gain.setValueAtTime(0.12, this.audioContext.currentTime); // 12%の控えめなリバーブ
         
         // リバーブリターン
         this.reverbReturn = this.audioContext.createGain();
@@ -1610,7 +1610,7 @@ class ChordPracticeApp {
         this.reverbSend.connect(this.reverb);
         this.reverb.connect(this.reverbReturn);
         
-        console.log('Room reverb created (2.0s decay, 25% wet)');
+        console.log('Room reverb created (2.0s decay, 12% wet)');
     }
     
     async preloadAudioFiles() {
@@ -1899,9 +1899,7 @@ class ChordPracticeApp {
                 key.className = 'piano-key black';
                 key.dataset.note = note;
                 
-                const noteName = noteNames[noteIndex];
-                const octave = Math.floor(note / 12) - 1;
-                key.textContent = `${noteName}${octave}`;
+                // 黒鍵には音名を表示しない
                 
                 // 黒鍵の位置を正確に計算
                 // この音符より前にある白鍵の数を数える
@@ -2331,9 +2329,16 @@ class ChordPracticeApp {
     }
     
     showGameScreen() {
-        // MIDIデバイスが接続されているかチェック
-        if (!this.midiInput) {
-            // MIDIデバイス未接続の場合は環境設定画面に遷移
+        // MIDIデバイスが実際に接続されているかチェック
+        // ローカルストレージに情報があっても、実際のデバイス接続を確認
+        let hasConnectedDevice = false;
+        if (this.midiAccess) {
+            const inputs = Array.from(this.midiAccess.inputs.values());
+            hasConnectedDevice = inputs.some(input => input.connection === 'open' || input.state === 'connected');
+        }
+        
+        if (!hasConnectedDevice) {
+            // 実際にMIDIデバイスが接続されていない場合のみ環境設定画面に遷移
             this.showSettingsScreen();
             this.updateMIDIStatus('ゲームを開始するにはMIDIデバイスを接続してください', false);
             return;
