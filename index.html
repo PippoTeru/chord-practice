@@ -1287,7 +1287,7 @@ class ChordPracticeApp {
             try {
                 // ベロシティ08のファイルを基本として使用（中程度の音量）
                 const fileName = this.getMIDIFileName(midiNote, 8);
-                const response = await fetch(`wav/${fileName}`);
+                const response = await fetch(`mp3/${fileName}`);
                 if (response.ok) {
                     const arrayBuffer = await response.arrayBuffer();
                     const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
@@ -1311,7 +1311,7 @@ class ChordPracticeApp {
         const noteName = noteNames[midiNote % 12];
         const velocityStr = velocity.toString().padStart(2, '0');
         
-        return `${midiNote.toString().padStart(3, '0')}_${noteName}${octave}v${velocityStr}.wav`;
+        return `${midiNote.toString().padStart(3, '0')}_${noteName}${octave}v${velocityStr}.mp3`;
     }
     
     findClosestSample(midiNote) {
