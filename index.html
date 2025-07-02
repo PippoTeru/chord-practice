@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.30';
+    static VERSION = '0.1.31';
     
     constructor() {
         this.chords = [
@@ -1803,9 +1803,9 @@ class ChordPracticeApp {
         const maxVel = 110;
         const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
         
-        // 30-110の範囲で音量を調整（0.2-0.8の範囲）
+        // 30-110の範囲で音量を調整（全体音量が300%を越えないように調整）
         const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
-        const volume = 0.2 + (normalizedVel * 0.6); // 最小20%から最大80%まで
+        const volume = 0.12 + (normalizedVel * 0.28); // 最小12%から最大40%まで（300%の3倍マスターと組み合わせて最大120%）
         gainNode.gain.setValueAtTime(volume, now);
         
         // 接続
@@ -1828,7 +1828,7 @@ class ChordPracticeApp {
         const maxVel = 110;
         const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
         const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
-        const volume = (0.1 + (normalizedVel * 0.3)) * 0.2; // 0.02-0.08の範囲
+        const volume = (0.06 + (normalizedVel * 0.14)) * 0.2; // 0.012-0.04の範囲（全体音量を抑える）
         const now = this.audioContext.currentTime;
         
         // シンプルなサイン波オシレーター
