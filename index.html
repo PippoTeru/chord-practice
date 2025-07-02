@@ -1333,7 +1333,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.8';
+    static VERSION = '0.1.9';
     
     constructor() {
         this.chords = [
@@ -1466,6 +1466,23 @@ class ChordPracticeApp {
         }
         
         console.log(`Preloaded ${this.audioBuffers.size} piano samples`);
+    }
+    
+    async loadSingleAudioFile(filePath) {
+        try {
+            const response = await fetch(filePath);
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                this.audioBuffers.set(filePath, audioBuffer);
+                console.log(`Loaded audio file: ${filePath}`);
+            } else {
+                console.warn(`Failed to load ${filePath}`);
+            }
+        } catch (error) {
+            console.warn(`Error loading audio file ${filePath}:`, error);
+            throw error;
+        }
     }
     
     getMIDIFileName(midiNote, velocity = 8) {
@@ -2330,35 +2347,28 @@ class ChordPracticeApp {
         }
     }
     
-    playCorrectAnswerSound() {
-        if (!this.currentChord) return;
-        
-        // 現在のコードの音程を取得
-        const chordNotes = this.currentChord.notes;
-        const velocity = 80; // 少し大きめの音量で演奏
-        
-        // 左手（ルート音）を演奏 - C3オクターブ
-        const rootNoteNumber = 48 + chordNotes[0]; // C3 = 48
-        this.playNote(rootNoteNumber, velocity);
-        
-        // 右手（コード構成音）を100ms後に演奏 - C5オクターブ  
-        setTimeout(() => {
-            chordNotes.forEach((note, index) => {
-                const noteNumber = 72 + note; // C5 = 72
-                this.playNote(noteNumber, velocity);
-            });
-        }, 100);
-        
-        // 演奏を1秒後に停止
-        setTimeout(() => {
-            // ルート音を停止
-            this.stopNote(rootNoteNumber);
-            // コード構成音を停止
-            chordNotes.forEach((note) => {
-                const noteNumber = 72 + note;
-                this.stopNote(noteNumber);
-            });
-        }, 1000);
+    async playCorrectAnswerSound() {
+        try {
+            // 正解音専用のMP3ファイルを使用
+            const correctSoundPath = 'mp3/correct001.mp3';
+            
+            // オーディオバッファが既にロードされているかチェック
+            if (!this.audioBuffers.has(correctSoundPath)) {
+                await this.loadSingleAudioFile(correctSoundPath);
+            }
+            
+            const buffer = this.audioBuffers.get(correctSoundPath);
+            if (buffer) {
+                const source = this.audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.masterVolume);
+                source.start();
+                
+                console.log('正解音を再生しました');
+            }
+        } catch (error) {
+            console.warn('正解音の再生に失敗しました:', error);
+        }
     }
     
     correctAnswer() {
