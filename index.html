@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.22';
+    static VERSION = '0.1.23';
     
     constructor() {
         this.chords = [
@@ -1541,11 +1541,17 @@ class ChordPracticeApp {
         this.limiter.curve = this.createLimiterCurve(limitThreshold);
         this.limiter.oversample = '4x';
         
-        // 接続: compressor -> limiter -> destination
-        this.compressor.connect(this.limiter);
+        // リバーブを作成
+        this.createReverb();
+        
+        // 接続: compressor -> reverb -> limiter -> destination
+        this.compressor.connect(this.reverbSend);
+        this.compressor.connect(this.limiter); // ドライシグナル
+        this.reverbReturn.connect(this.limiter); // ウェットシグナル
         this.limiter.connect(this.audioContext.destination);
         
-        console.log(`Limiter created with threshold: ${limitThreshold.toFixed(3)} (-0.5dB)`);
+        console.log(`Audio chain created: compressor -> reverb -> limiter -> destination`);
+        console.log(`Limiter threshold: ${limitThreshold.toFixed(3)} (-0.5dB)`);
     }
     
     createLimiterCurve(threshold) {
@@ -1567,6 +1573,44 @@ class ChordPracticeApp {
         }
         
         return curve;
+    }
+    
+    createReverb() {
+        // コンボリューションリバーブ用のインパルスレスポンスを作成
+        const sampleRate = this.audioContext.sampleRate;
+        const length = sampleRate * 2.0; // 2秒のリバーブ
+        const impulse = this.audioContext.createBuffer(2, length, sampleRate);
+        
+        // ルームリバーブのインパルスレスポンスを生成
+        for (let channel = 0; channel < 2; channel++) {
+            const channelData = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+                const n = length - i;
+                // 指数関数的に減衰するノイズ（ルーム特性をシミュレート）
+                const decay = Math.pow(n / length, 2.5); // 減衰カーブ
+                const earlyReflection = i < sampleRate * 0.05 ? Math.random() * 0.3 : 0; // 初期反射
+                const lateReverb = (Math.random() * 2 - 1) * decay * 0.15; // 後期残響
+                channelData[i] = (earlyReflection + lateReverb) * (1 - channel * 0.1); // ステレオ差
+            }
+        }
+        
+        // コンボリューションリバーブを作成
+        this.reverb = this.audioContext.createConvolver();
+        this.reverb.buffer = impulse;
+        
+        // リバーブセンド（ウェット信号用）
+        this.reverbSend = this.audioContext.createGain();
+        this.reverbSend.gain.setValueAtTime(0.25, this.audioContext.currentTime); // 25%のリバーブ
+        
+        // リバーブリターン
+        this.reverbReturn = this.audioContext.createGain();
+        this.reverbReturn.gain.setValueAtTime(1.0, this.audioContext.currentTime);
+        
+        // 接続: reverbSend -> reverb -> reverbReturn
+        this.reverbSend.connect(this.reverb);
+        this.reverb.connect(this.reverbReturn);
+        
+        console.log('Room reverb created (2.0s decay, 25% wet)');
     }
     
     async preloadAudioFiles() {
@@ -1742,13 +1786,13 @@ class ChordPracticeApp {
             const now = this.audioContext.currentTime;
             
             try {
-                // フェードアウト
+                // より自然なフェードアウト（ピアノの減衰をシミュレート）
                 gainNode.gain.cancelScheduledValues(now);
                 gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8); // 0.8秒でフェード
                 
-                // 少し遅延して音源を停止
-                source.stop(now + 0.15);
+                // リバーブテールを考慮して遅延停止
+                source.stop(now + 1.2);
             } catch (error) {
                 // 既に停止している場合のエラーを無視
                 console.warn(`Error stopping note ${midiNote}:`, error);
@@ -1757,7 +1801,7 @@ class ChordPracticeApp {
             // マップから削除
             this.activeSources.delete(midiNote);
             
-            console.log(`Stopping piano note ${midiNote}`);
+            console.log(`Stopping piano note ${midiNote} with natural decay`);
         }
     }
     
