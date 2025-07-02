@@ -1333,7 +1333,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.6';
+    static VERSION = '0.1.7';
     
     constructor() {
         this.chords = [
@@ -2152,11 +2152,41 @@ class ChordPracticeApp {
         this.elements.settingsScreen.style.display = 'none';
         this.elements.gameScreen.style.display = 'block';
         
+        // ゲームUIの状態をリセット
+        this.resetGameUI();
+        
         // ゲーム画面に移行時に鍵盤を再作成して範囲を表示
         setTimeout(() => {
             this.createPianoKeyboard();
             this.generateRandomRange();
         }, 100);
+    }
+    
+    resetGameUI() {
+        // ゲームの状態をリセット
+        this.gameActive = false;
+        if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+        
+        // スコアとタイマーをリセット
+        this.score = 0;
+        this.timeLeft = 60;
+        this.elements.score.textContent = this.score;
+        this.elements.timer.textContent = this.timeLeft;
+        
+        // ボタンの表示状態をリセット
+        this.elements.startBtn.style.display = 'inline-block';
+        this.elements.restartBtn.style.display = 'none';
+        
+        // UIの表示状態をリセット
+        this.elements.resultDisplay.style.display = 'none';
+        this.elements.chordDisplay.style.display = 'block';
+        this.elements.currentChord.textContent = 'スタートを押してください';
+        
+        // 結果エリアも非表示にする
+        this.elements.resultArea.style.display = 'none';
     }
     
     startGame() {
