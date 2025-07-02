@@ -1021,29 +1021,6 @@ h2 {
     box-shadow: 0 4px 20px rgba(0,0,0,0.05);
 }
 
-.piano-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #e2e8f0;
-}
-
-.piano-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 1.3em;
-    color: #4a5568;
-    margin: 0;
-    font-weight: 600;
-}
-
-.piano-icon {
-    font-size: 1.4em;
-}
-
 @media (max-width: 768px) {
     .settings-content {
         gap: 20px;
@@ -1334,11 +1311,6 @@ h2 {
             </div>
 
             <div id="piano-display" class="piano-display">
-                <div class="piano-header">
-                    <div class="piano-title">
-                        <span class="piano-icon">🎹</span>
-                    </div>
-                </div>
                 <div class="chord-info">
                     <div class="hand-info">
                         <div class="hand-item left-hand">
@@ -1361,7 +1333,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.5';
+    static VERSION = '0.1.6';
     
     constructor() {
         this.chords = [
