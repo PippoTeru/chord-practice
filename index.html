@@ -1494,7 +1494,35 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.37';
+    async loadSingleSample(midiNote, velocityLayer) {
+        try {
+            const fileName = this.getMIDIFileName(midiNote, velocityLayer);
+            const response = await fetch(`mp3/${fileName}`);
+            
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                
+                // 新しいキー形式で保存
+                const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
+                this.audioBuffers.set(velocityKey, audioBuffer);
+                
+                // ベロシティレイヤー8は後方互換性のため古いキーでも保存
+                if (velocityLayer === 8) {
+                    this.audioBuffers.set(midiNote, audioBuffer);
+                }
+                
+                return { success: true, fileName, midiNote, velocityLayer };
+            } else {
+                console.warn(`Failed to load ${fileName}`);
+                return { success: false, fileName, error: `HTTP ${response.status}` };
+            }
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+    
+    static VERSION = '0.1.38';
     
     constructor() {
         this.chords = [
@@ -1715,48 +1743,58 @@ class ChordPracticeApp {
         
         console.log('Starting to preload piano samples...');
         
-        // すべてのベロシティレイヤーをプリロード（最高の応答性を実現）
+        // 並列読み込みで高速化（すべてのベロシティレイヤーをプリロード）
         const allLayers = Array.from({length: 16}, (_, i) => i + 1); // 1-16のすべてのレイヤー
         let loadedCount = 0;
         let totalFiles = sampleNotes.length * allLayers.length;
         
-        console.log(`Preloading ${totalFiles} velocity layer samples...`);
+        console.log(`Preloading ${totalFiles} velocity layer samples with parallel loading...`);
+        
+        // すべてのファイルを並列で読み込み
+        const loadPromises = [];
         
         for (const midiNote of sampleNotes) {
             for (const velocityLayer of allLayers) {
-                try {
-                    const fileName = this.getMIDIFileName(midiNote, velocityLayer);
-                    const response = await fetch(`mp3/${fileName}`);
-                    if (response.ok) {
-                        const arrayBuffer = await response.arrayBuffer();
-                        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-                        // 新しいキー形式で保存
-                        const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
-                        this.audioBuffers.set(velocityKey, audioBuffer);
-                        
-                        // ベロシティレイヤー8は後方互換性のため古いキーでも保存
-                        if (velocityLayer === 8) {
-                            this.audioBuffers.set(midiNote, audioBuffer);
+                const loadPromise = this.loadSingleSample(midiNote, velocityLayer)
+                    .then((result) => {
+                        if (result.success) {
+                            loadedCount++;
+                            
+                            // 進行状況を更新（スロットルしてパフォーマンスを保つ）
+                            if (loadedCount % 10 === 0 || loadedCount === totalFiles) {
+                                this.updateLoadingProgress(loadedCount, totalFiles, result.fileName);
+                            }
+                            
+                            if (loadedCount % 100 === 0) {
+                                console.log(`Loaded ${loadedCount}/${totalFiles} samples (${((loadedCount/totalFiles)*100).toFixed(1)}%)`);
+                            }
                         }
-                        
-                        loadedCount++;
-                        
-                        // ロード画面の進行状況を更新
-                        this.updateLoadingProgress(loadedCount, totalFiles, fileName);
-                        
-                        if (loadedCount % 50 === 0) {
-                            console.log(`Loaded ${loadedCount}/${totalFiles} samples (${((loadedCount/totalFiles)*100).toFixed(1)}%)`);
-                        }
-                    } else {
-                        console.warn(`Failed to load ${fileName}`);
-                    }
-                } catch (error) {
-                    console.warn(`Error loading sample for note ${midiNote}, layer ${velocityLayer}:`, error);
-                }
+                        return result;
+                    })
+                    .catch((error) => {
+                        console.warn(`Error loading sample for note ${midiNote}, layer ${velocityLayer}:`, error);
+                        return { success: false, error };
+                    });
+                
+                loadPromises.push(loadPromise);
             }
         }
         
-        console.log(`Preloading complete: ${loadedCount}/${totalFiles} samples loaded`);
+        // すべての読み込みを並列実行（同時接続数を制限してブラウザを保護）
+        const batchSize = 20; // 20ファイルずつ並列読み込み
+        for (let i = 0; i < loadPromises.length; i += batchSize) {
+            const batch = loadPromises.slice(i, i + batchSize);
+            await Promise.all(batch);
+            // バッチ間で少し待機してブラウザを休ませる
+            if (i + batchSize < loadPromises.length) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+        }
+        
+        console.log(`Parallel preloading complete: ${loadedCount}/${totalFiles} samples loaded`);
+        
+        // 最終進行状況を更新
+        this.updateLoadingProgress(loadedCount, totalFiles, '完了!');
         
         console.log(`Preloaded ${this.audioBuffers.size} piano samples`);
     }
