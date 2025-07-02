@@ -573,6 +573,47 @@ h2 {
     font-size: 0.9em;
 }
 
+.sustain-pedal-indicator {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    border: 1px solid #e2e8f0;
+}
+
+.pedal-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.pedal-icon {
+    font-size: 1.2em;
+}
+
+.pedal-label {
+    font-weight: bold;
+    color: #4a5568;
+}
+
+.pedal-state {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.8em;
+    min-width: 40px;
+    text-align: center;
+}
+
+.pedal-state.off {
+    background: #fed7d7;
+    color: #c53030;
+}
+
+.pedal-state.on {
+    background: #c6f6d5;
+    color: #2d7d32;
+}
+
 .audio-info {
     background: white;
     border-radius: 10px;
@@ -1035,6 +1076,13 @@ h2 {
                                 <span id="volume-value" class="volume-value">30%</span>
                             </div>
                         </div>
+                        <div class="sustain-pedal-indicator">
+                            <div class="pedal-status" id="sustain-pedal-status">
+                                <span class="pedal-icon">🦶</span>
+                                <span class="pedal-label">サスティーンペダル</span>
+                                <span class="pedal-state" id="pedal-state">OFF</span>
+                            </div>
+                        </div>
                         <div class="audio-info">
                             <div class="info-item">
                                 <span class="info-icon">ℹ️</span>
@@ -1210,6 +1258,10 @@ class ChordPracticeApp {
         this.pianoKeys = {};
         this.resizeTimeout = null;
         
+        // サスティーンペダル関連
+        this.sustainPedalPressed = false;
+        this.sustainedNotes = new Set(); // サスティーンペダルで維持される音程
+        
         // MIDIメッセージハンドラーを初期化時にバインド
         this.midiMessageHandler = this.onMIDIMessage.bind(this);
         
@@ -1252,7 +1304,8 @@ class ChordPracticeApp {
             goToGameBtn: document.getElementById('go-to-game-btn'),
             statusIndicator: document.getElementById('status-indicator'),
             volumeSlider: document.getElementById('volume-slider'),
-            volumeValue: document.getElementById('volume-value')
+            volumeValue: document.getElementById('volume-value'),
+            pedalState: document.getElementById('pedal-state')
         };
     }
     
@@ -1714,20 +1767,62 @@ class ChordPracticeApp {
         const [command, note, velocity] = event.data;
         console.log(`MIDI: cmd=${command}, note=${note}, vel=${velocity}`);
         
+        // Control Change (CC) メッセージの処理
+        if (command === 176) {
+            if (note === 64) {
+                // サスティーンペダル (CC#64)
+                this.handleSustainPedal(velocity >= 64);
+                return;
+            }
+        }
+        
         if (command === 144 && velocity > 0) {
             // Note ON
             this.pressedKeys.add(note);
             this.updatePianoKeyDisplay(note, true);
-            this.playNote(note, velocity); // WAVサンプルを再生
+            this.playNote(note, velocity);
         } else if (command === 128 || (command === 144 && velocity === 0)) {
             // Note OFF
             this.pressedKeys.delete(note);
-            this.updatePianoKeyDisplay(note, false);
-            this.stopNote(note); // WAVサンプルを停止
+            this.handleNoteOff(note);
         }
         
         if (this.gameActive) {
             this.checkChord();
+        }
+    }
+    
+    handleSustainPedal(pressed) {
+        console.log(`Sustain pedal: ${pressed ? 'ON' : 'OFF'}`);
+        this.sustainPedalPressed = pressed;
+        
+        // UIの更新
+        if (this.elements.pedalState) {
+            this.elements.pedalState.textContent = pressed ? 'ON' : 'OFF';
+            this.elements.pedalState.className = 'pedal-state ' + (pressed ? 'on' : 'off');
+        }
+        
+        if (!pressed) {
+            // サスティーンペダルを離した時、維持されていた音を停止
+            for (const note of this.sustainedNotes) {
+                if (!this.pressedKeys.has(note)) {
+                    this.stopNote(note);
+                    this.updatePianoKeyDisplay(note, false);
+                }
+            }
+            this.sustainedNotes.clear();
+        }
+    }
+    
+    handleNoteOff(note) {
+        if (this.sustainPedalPressed) {
+            // サスティーンペダルが押されている場合、音を維持
+            this.sustainedNotes.add(note);
+            console.log(`Note ${note} sustained by pedal`);
+        } else {
+            // 通常のノートオフ処理
+            this.stopNote(note);
+            this.updatePianoKeyDisplay(note, false);
         }
     }
     
@@ -1817,6 +1912,12 @@ class ChordPracticeApp {
         // 音量コントロールのイベントリスナー
         if (this.elements.volumeSlider) {
             this.elements.volumeSlider.addEventListener('input', (event) => this.updateVolume(event.target.value));
+        }
+        
+        // サスティーンペダルの初期状態設定
+        if (this.elements.pedalState) {
+            this.elements.pedalState.textContent = 'OFF';
+            this.elements.pedalState.className = 'pedal-state off';
         }
     }
     
