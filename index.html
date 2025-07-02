@@ -1424,7 +1424,7 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.34';
+    static VERSION = '0.1.35';
     
     constructor() {
         this.chords = [
@@ -1727,13 +1727,8 @@ class ChordPracticeApp {
     
     // ベロシティから適切なレイヤー番号を計算（直線的マッピング）
     getVelocityLayer(velocity) {
-        // 30-110のベロシティを1-16のレイヤーに直線的にマッピング
-        const minVel = 30;
-        const maxVel = 110;
-        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
-        
-        // 30-110を 1-16にマッピング（直線的）
-        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel); // 0-1に正規化
+        // 0-127のベロシティを1-16のレイヤーに直線的にマッピング
+        const normalizedVel = velocity / 127; // 0-1に正規化
         const layer = Math.floor(normalizedVel * 15) + 1; // 1-16のレイヤー
         return Math.max(1, Math.min(16, layer));
     }
@@ -1829,12 +1824,7 @@ class ChordPracticeApp {
         
         // ベロシティに基づく音量調整（ダブルダイナミクス）
         // ベロシティレイヤーと音量の両方でダイナミクスを表現
-        const minVel = 30;
-        const maxVel = 110;
-        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
-        
-        // 30-110の範囲で音量を調整（小さく弾いた時の音量をさらに小さく）
-        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
+        const normalizedVel = velocity / 127;
         const volume = 0.06 + (normalizedVel * 0.34); // 最小6%から最大40%まで（300%マスターで最小18%、最大120%）
         gainNode.gain.setValueAtTime(volume, now);
         
@@ -1856,11 +1846,8 @@ class ChordPracticeApp {
     
     playFallbackTone(midiNote, velocity) {
         const frequency = this.midiToFrequency(midiNote);
-        // フォールバック音源でも30-110の範囲でダイナミクスを適用
-        const minVel = 30;
-        const maxVel = 110;
-        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
-        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
+        // フォールバック音源でも0-127の範囲でダイナミクスを適用
+        const normalizedVel = velocity / 127;
         const volume = (0.03 + (normalizedVel * 0.17)) * 0.2; // 0.006-0.04の範囲（軽いタッチをさらに小さく）
         const now = this.audioContext.currentTime;
         
