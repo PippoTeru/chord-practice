@@ -1,8 +1,0 @@
-{
-  "name": "chord-practice",
-  "compatibility_date": "2025-07-02",
-  "assets": {
-    "directory": "./",
-    "exclude": [".git/**", "*.log", "wav/**", "wav_lite/**", "wav_mp3/**"]
-  }
-}
