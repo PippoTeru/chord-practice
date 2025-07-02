@@ -1807,6 +1807,7 @@ class ChordPracticeApp {
             for (const note of this.sustainedNotes) {
                 if (!this.pressedKeys.has(note)) {
                     this.stopNote(note);
+                    // 視覚的表示も確実にクリア（既にクリアされているはずだが念のため）
                     this.updatePianoKeyDisplay(note, false);
                 }
             }
@@ -1815,14 +1816,16 @@ class ChordPracticeApp {
     }
     
     handleNoteOff(note) {
+        // 鍵盤の視覚的な押下状態は常に解除
+        this.updatePianoKeyDisplay(note, false);
+        
         if (this.sustainPedalPressed) {
-            // サスティーンペダルが押されている場合、音を維持
+            // サスティーンペダルが押されている場合、音のみ維持
             this.sustainedNotes.add(note);
-            console.log(`Note ${note} sustained by pedal`);
+            console.log(`Note ${note} sustained by pedal (visual released)`);
         } else {
-            // 通常のノートオフ処理
+            // 通常のノートオフ処理（音も停止）
             this.stopNote(note);
-            this.updatePianoKeyDisplay(note, false);
         }
     }
     
