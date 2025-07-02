@@ -1081,8 +1081,8 @@ h2 {
                             </label>
                             <div class="volume-slider-wrapper">
                                 <input type="range" id="volume-slider" class="volume-slider" 
-                                       min="0" max="100" value="30" step="1">
-                                <span id="volume-value" class="volume-value">30%</span>
+                                       min="0" max="100" value="100" step="1">
+                                <span id="volume-value" class="volume-value">100%</span>
                             </div>
                         </div>
                         <div class="sustain-pedal-indicator">
@@ -1282,12 +1282,17 @@ class ChordPracticeApp {
         this.audioBuffers = new Map(); // プリロードされたオーディオバッファ
         this.activeSources = new Map(); // アクティブな音源
         this.masterVolume = null;
-        this.initializeAudio();
+        // 設定の初期化と読み込み
+        this.settings = this.loadSettings();
         
         this.initializeElements();
+        this.initializeAudio();
         this.createPianoKeyboard();
         this.setupMIDI();
         this.setupEventListeners();
+        
+        // 設定を適用
+        this.applySettings();
     }
     
     initializeElements() {
@@ -1329,7 +1334,7 @@ class ChordPracticeApp {
             
             // マスターボリュームコントロール
             this.masterVolume = this.audioContext.createGain();
-            this.masterVolume.gain.setValueAtTime(0.3, this.audioContext.currentTime); // 30%の音量
+            this.masterVolume.gain.setValueAtTime(this.settings.volume / 100, this.audioContext.currentTime);
             this.masterVolume.connect(this.audioContext.destination);
             
             // WAVファイルをプリロード
@@ -1751,6 +1756,11 @@ class ChordPracticeApp {
             this.midiInput = selectedInput;
             this.midiInput.addEventListener('midimessage', this.midiMessageHandler);
             this.updateMIDIStatus(`${this.midiInput.name} に接続されました`, true);
+            
+            // 設定を保存
+            this.settings.selectedMidiDevice = selectedDeviceId;
+            this.saveSettings();
+            
             console.log(`=== デバイス接続完了: ${this.midiInput.name} ===`);
         } else {
             console.error(`デバイスが見つかりません: ${selectedDeviceId}`);
@@ -1876,6 +1886,65 @@ class ChordPracticeApp {
         }
     }
     
+    // 設定管理メソッド
+    loadSettings() {
+        const defaultSettings = {
+            volume: 100,
+            selectedMidiDevice: null
+        };
+        
+        try {
+            const savedSettings = localStorage.getItem('chordPracticeSettings');
+            if (savedSettings) {
+                return { ...defaultSettings, ...JSON.parse(savedSettings) };
+            }
+        } catch (error) {
+            console.warn('Failed to load settings:', error);
+        }
+        
+        return defaultSettings;
+    }
+    
+    saveSettings() {
+        try {
+            localStorage.setItem('chordPracticeSettings', JSON.stringify(this.settings));
+            console.log('Settings saved:', this.settings);
+        } catch (error) {
+            console.warn('Failed to save settings:', error);
+        }
+    }
+    
+    applySettings() {
+        // 音量設定の適用
+        if (this.elements.volumeSlider && this.elements.volumeValue) {
+            this.elements.volumeSlider.value = this.settings.volume;
+            this.elements.volumeValue.textContent = `${this.settings.volume}%`;
+            this.updateVolume(this.settings.volume);
+        }
+        
+        // MIDIデバイス設定の適用（MIDIアクセス確立後に適用）
+        if (this.settings.selectedMidiDevice) {
+            setTimeout(() => this.applyMidiDeviceSelection(), 1000);
+        }
+    }
+    
+    applyMidiDeviceSelection() {
+        if (this.elements.midiDevicesSelect && this.settings.selectedMidiDevice) {
+            // 保存されたデバイスが利用可能かチェック
+            const options = Array.from(this.elements.midiDevicesSelect.options);
+            const targetOption = options.find(option => option.value === this.settings.selectedMidiDevice);
+            
+            if (targetOption) {
+                this.elements.midiDevicesSelect.value = this.settings.selectedMidiDevice;
+                this.connectToSelectedDevice();
+                console.log('Applied saved MIDI device:', this.settings.selectedMidiDevice);
+            } else {
+                console.log('Saved MIDI device no longer available:', this.settings.selectedMidiDevice);
+                this.settings.selectedMidiDevice = null;
+                this.saveSettings();
+            }
+        }
+    }
     
     updateGameButtonVisibility() {
         // MIDIデバイスが接続されている場合のみ「ゲーム画面へ」ボタンを表示
@@ -1894,6 +1963,11 @@ class ChordPracticeApp {
         if (this.elements.volumeValue) {
             this.elements.volumeValue.textContent = `${value}%`;
         }
+        
+        // 設定を保存
+        this.settings.volume = parseInt(value);
+        this.saveSettings();
+        
         console.log(`Volume updated to ${value}%`);
     }
     
