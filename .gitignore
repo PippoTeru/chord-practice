@@ -1,0 +1,6 @@
+node_modules/
+wav/
+wav_lite/
+wav_mp3/
+*.log
+.DS_Store
