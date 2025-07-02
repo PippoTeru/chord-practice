@@ -810,10 +810,11 @@ h2 {
     transform: translate(-50%, -50%);
     width: 150px;
     height: 150px;
-    background: #e53e3e;
+    background: transparent;
+    border: 8px solid #e53e3e;
     border-radius: 50%;
     animation: correctPulse 0.6s ease-out;
-    box-shadow: 0 4px 20px rgba(229, 62, 62, 0.6);
+    box-shadow: 0 4px 20px rgba(229, 62, 62, 0.4);
     z-index: 15;
 }
 
@@ -1405,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.16';
+    static VERSION = '0.1.17';
     
     constructor() {
         this.chords = [
