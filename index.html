@@ -1326,7 +1326,7 @@ h2 {
                         </div>
                     </div>
                     <div class="chord-header">
-                        <h3 class="chord-instruction">この和音を演奏してください</h3>
+                        <h3 class="chord-instruction" style="display: none;">この和音を演奏してください</h3>
                     </div>
                     <div id="chord-display" class="chord-display">
                         <span id="current-chord">スタートを押してください</span>
@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.24';
+    static VERSION = '0.1.25';
     
     constructor() {
         this.chords = [
@@ -1498,7 +1498,8 @@ class ChordPracticeApp {
             volumeSlider: document.getElementById('volume-slider'),
             volumeValue: document.getElementById('volume-value'),
             pedalState: document.getElementById('pedal-state'),
-            versionInfo: document.getElementById('version-info')
+            versionInfo: document.getElementById('version-info'),
+            chordInstruction: document.querySelector('.chord-instruction')
         };
     }
     
@@ -2367,6 +2368,11 @@ class ChordPracticeApp {
             this.timer = null;
         }
         
+        // 指示文を非表示
+        if (this.elements.chordInstruction) {
+            this.elements.chordInstruction.style.display = 'none';
+        }
+        
         // カウントダウンをクリア
         if (this.countdownInterval) {
             clearInterval(this.countdownInterval);
@@ -2411,6 +2417,11 @@ class ChordPracticeApp {
         this.gameActive = true;
         this.score = 0;
         this.timeLeft = 60;
+        
+        // ゲーム開始時に指示文を表示
+        if (this.elements.chordInstruction) {
+            this.elements.chordInstruction.style.display = 'block';
+        }
         
         this.generateRandomRange();
         this.nextChord();
@@ -2461,6 +2472,11 @@ class ChordPracticeApp {
         
         this.elements.startBtn.style.display = 'inline-block';
         this.elements.restartBtn.style.display = 'none';
+        
+        // 指示文を非表示
+        if (this.elements.chordInstruction) {
+            this.elements.chordInstruction.style.display = 'none';
+        }
         
         // 和音表示を隠してインライン結果表示を表示
         this.elements.chordDisplay.style.display = 'none';
