@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.26';
+    static VERSION = '0.1.27';
     
     constructor() {
         this.chords = [
@@ -1622,26 +1622,33 @@ class ChordPracticeApp {
         
         console.log('Starting to preload piano samples...');
         
+        // 基本的なベロシティレイヤーをプリロード（音が出ない問題を防ぐ）
+        const essentialLayers = [4, 8, 12]; // 軽い、中程度、強い打鍵
+        
         for (const midiNote of sampleNotes) {
-            try {
-                // ベロシティ08のファイルを基本としてプリロード（中程度の音量）
-                const velocityLayer = 8;
-                const fileName = this.getMIDIFileName(midiNote, velocityLayer);
-                const response = await fetch(`mp3/${fileName}`);
-                if (response.ok) {
-                    const arrayBuffer = await response.arrayBuffer();
-                    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-                    // 新しいキー形式で保存
-                    const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
-                    this.audioBuffers.set(velocityKey, audioBuffer);
-                    // 後方互換性のため古いキーでも保存
-                    this.audioBuffers.set(midiNote, audioBuffer);
-                    console.log(`Loaded sample for note ${midiNote}: ${fileName}`);
-                } else {
-                    console.warn(`Failed to load ${fileName}`);
+            for (const velocityLayer of essentialLayers) {
+                try {
+                    const fileName = this.getMIDIFileName(midiNote, velocityLayer);
+                    const response = await fetch(`mp3/${fileName}`);
+                    if (response.ok) {
+                        const arrayBuffer = await response.arrayBuffer();
+                        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                        // 新しいキー形式で保存
+                        const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
+                        this.audioBuffers.set(velocityKey, audioBuffer);
+                        
+                        // ベロシティレイヤー8は後方互換性のため古いキーでも保存
+                        if (velocityLayer === 8) {
+                            this.audioBuffers.set(midiNote, audioBuffer);
+                        }
+                        
+                        console.log(`Loaded velocity layer ${velocityLayer} for note ${midiNote}: ${fileName}`);
+                    } else {
+                        console.warn(`Failed to load ${fileName}`);
+                    }
+                } catch (error) {
+                    console.warn(`Error loading sample for note ${midiNote}, layer ${velocityLayer}:`, error);
                 }
-            } catch (error) {
-                console.warn(`Error loading sample for note ${midiNote}:`, error);
             }
         }
         
@@ -1707,7 +1714,7 @@ class ChordPracticeApp {
     }
     
     // WAVサンプルでピアノ音を再生
-    async playNote(midiNote, velocity = 127) {
+    playNote(midiNote, velocity = 127) {
         if (!this.audioContext) return;
         
         // AudioContextが停止状態の場合、再開
@@ -1718,29 +1725,19 @@ class ChordPracticeApp {
         // 既存の音を停止
         this.stopNote(midiNote);
         
-        // ベロシティに応じて適切なレイヤーを選択
-        const velocityLayer = this.getVelocityLayer(velocity);
-        
-        // 適切なベロシティレイヤーのサンプルを探す
+        // 適切なサンプルを探す
         const closestSample = this.findClosestSample(midiNote);
         if (closestSample) {
-            // 動的にベロシティレイヤーをロード
-            const velocityKey = `${closestSample}_v${velocityLayer.toString().padStart(2, '0')}`;
-            let audioBuffer = this.audioBuffers.get(velocityKey);
-            
-            if (!audioBuffer) {
-                // ベロシティレイヤーが未ロードの場合、動的にロード
-                try {
-                    const fileName = this.getMIDIFileName(closestSample, velocityLayer);
-                    await this.loadVelocityLayer(closestSample, velocityLayer, fileName);
-                    audioBuffer = this.audioBuffers.get(velocityKey);
-                } catch (error) {
-                    console.warn(`Failed to load velocity layer ${velocityLayer} for note ${closestSample}:`, error);
-                }
-            }
-            
+            // まずベーシックサンプル（v08）で即座に再生
+            let audioBuffer = this.audioBuffers.get(closestSample);
             if (audioBuffer) {
-                this.playWAVSample(midiNote, velocity, closestSample, audioBuffer, velocityLayer);
+                this.playWAVSample(midiNote, velocity, closestSample, audioBuffer, 8);
+                
+                // 背景で適切なベロシティレイヤーをロードして次回に備える
+                const velocityLayer = this.getVelocityLayer(velocity);
+                if (velocityLayer !== 8) {
+                    this.preloadVelocityLayerInBackground(closestSample, velocityLayer);
+                }
                 return;
             }
         }
@@ -1748,6 +1745,19 @@ class ChordPracticeApp {
         // WAVサンプルが利用できない場合、フォールバック音源を使用
         console.log(`No WAV sample available for note ${midiNote}, using fallback tone`);
         this.playFallbackTone(midiNote, velocity);
+    }
+    
+    // 背景でベロシティレイヤーをプリロード（非同期）
+    preloadVelocityLayerInBackground(midiNote, velocityLayer) {
+        const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
+        if (this.audioBuffers.has(velocityKey)) {
+            return; // 既にロード済み
+        }
+        
+        const fileName = this.getMIDIFileName(midiNote, velocityLayer);
+        this.loadVelocityLayer(midiNote, velocityLayer, fileName).catch(error => {
+            console.warn(`Background preload failed for velocity layer ${velocityLayer}:`, error);
+        });
     }
     
     async loadVelocityLayer(midiNote, velocityLayer, fileName) {
