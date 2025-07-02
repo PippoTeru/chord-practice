@@ -1522,7 +1522,7 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.38';
+    static VERSION = '0.1.39';
     
     constructor() {
         this.chords = [
@@ -1851,8 +1851,9 @@ class ChordPracticeApp {
     
     // ベロシティから適切なレイヤー番号を計算（直線的マッピング）
     getVelocityLayer(velocity) {
-        // 0-127のベロシティを1-16のレイヤーに直線的にマッピング
-        const normalizedVel = velocity / 127; // 0-1に正規化
+        // 0-115のベロシティを1-16のレイヤーに直線的にマッピング
+        const clampedVel = Math.min(115, velocity); // 115で上限制限
+        const normalizedVel = clampedVel / 115; // 0-1に正規化
         const layer = Math.floor(normalizedVel * 15) + 1; // 1-16のレイヤー
         return Math.max(1, Math.min(16, layer));
     }
