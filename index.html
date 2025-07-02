@@ -1543,7 +1543,7 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.41';
+    static VERSION = '0.1.42';
     
     constructor() {
         this.chords = [
@@ -2779,12 +2779,12 @@ class ChordPracticeApp {
     }
     
     generateRandomRange() {
-        // 固定範囲: 左手C2-C3、右手C4-C5
+        // 固定範囲: 左手C2-B2、右手C4-B4
         this.currentRange = {
             leftHandMin: 36,  // C2
-            leftHandMax: 48,  // C3
+            leftHandMax: 47,  // B2
             rightHandMin: 60, // C4
-            rightHandMax: 72  // C5
+            rightHandMax: 71  // B4
         };
         
         this.updateRangeDisplay();
