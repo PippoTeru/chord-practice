@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.29';
+    static VERSION = '0.1.30';
     
     constructor() {
         this.chords = [
@@ -1797,9 +1797,15 @@ class ChordPracticeApp {
         const playbackRate = Math.pow(2, semitoneShift / 12);
         source.playbackRate.setValueAtTime(playbackRate, now);
         
-        // ベロシティに基づく直線的な音量調整
-        const normalizedVel = velocity / 127;
-        const volume = normalizedVel * 0.5; // 直線的な音量変化
+        // ベロシティに基づく音量調整（ダブルダイナミクス）
+        // ベロシティレイヤーと音量の両方でダイナミクスを表現
+        const minVel = 30;
+        const maxVel = 110;
+        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
+        
+        // 30-110の範囲で音量を調整（0.2-0.8の範囲）
+        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
+        const volume = 0.2 + (normalizedVel * 0.6); // 最小20%から最大80%まで
         gainNode.gain.setValueAtTime(volume, now);
         
         // 接続
@@ -1812,12 +1818,17 @@ class ChordPracticeApp {
         // アクティブなソースとして保存
         this.activeSources.set(midiNote, { source, gainNode });
         
-        console.log(`Playing piano note ${midiNote} using velocity layer ${velocityLayer} (${velocity}/127) sample ${closestSample}`);
+        console.log(`Playing piano note ${midiNote} using velocity layer ${velocityLayer} (vel:${velocity}/127, vol:${(volume*100).toFixed(0)}%) sample ${closestSample}`);
     }
     
     playFallbackTone(midiNote, velocity) {
         const frequency = this.midiToFrequency(midiNote);
-        const volume = (velocity / 127) * 0.2;
+        // フォールバック音源でも30-110の範囲でダイナミクスを適用
+        const minVel = 30;
+        const maxVel = 110;
+        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
+        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel);
+        const volume = (0.1 + (normalizedVel * 0.3)) * 0.2; // 0.02-0.08の範囲
         const now = this.audioContext.currentTime;
         
         // シンプルなサイン波オシレーター
