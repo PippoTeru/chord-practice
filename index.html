@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.17';
+    static VERSION = '0.1.18';
     
     constructor() {
         this.chords = [
@@ -1509,7 +1509,7 @@ class ChordPracticeApp {
             
             // マスターボリュームコントロール
             this.masterVolume = this.audioContext.createGain();
-            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 3, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 4.5, this.audioContext.currentTime);
             this.masterVolume.connect(this.audioContext.destination);
             
             // WAVファイルをプリロード
@@ -2150,7 +2150,7 @@ class ChordPracticeApp {
     updateVolume(value) {
         const volume = value / 100;
         if (this.masterVolume) {
-            this.masterVolume.gain.setValueAtTime(volume * 3, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime(volume * 4.5, this.audioContext.currentTime);
         }
         if (this.elements.volumeValue) {
             this.elements.volumeValue.textContent = `${value}%`;
@@ -2507,7 +2507,7 @@ class ChordPracticeApp {
                 console.log('正解音を再生開始');
                 const source = this.audioContext.createBufferSource();
                 const gainNode = this.audioContext.createGain();
-                gainNode.gain.setValueAtTime(0.33, this.audioContext.currentTime); // 音量を3分の1に
+                gainNode.gain.setValueAtTime(0.165, this.audioContext.currentTime); // 音量を3分の1の半分に
                 
                 source.buffer = buffer;
                 source.connect(gainNode);
