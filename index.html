@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.19';
+    static VERSION = '0.1.20';
     
     constructor() {
         this.chords = [
@@ -1507,18 +1507,66 @@ class ChordPracticeApp {
             // AudioContextを作成（ユーザー操作後に初期化）
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
+            // リミッターとコンプレッサーを作成
+            this.createLimiter();
+            
             // マスターボリュームコントロール
             this.masterVolume = this.audioContext.createGain();
             this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 5, this.audioContext.currentTime);
-            this.masterVolume.connect(this.audioContext.destination);
+            this.masterVolume.connect(this.compressor);
             
             // WAVファイルをプリロード
             this.preloadAudioFiles();
             
-            console.log('Audio context initialized');
+            console.log('Audio context initialized with limiter');
         } catch (error) {
             console.error('Failed to initialize audio context:', error);
         }
+    }
+    
+    createLimiter() {
+        // -0.5dBでリミッターを作成
+        const limitThreshold = Math.pow(10, -0.5 / 20); // -0.5dB = 約0.944の振幅
+        
+        // コンプレッサーでソフトリミッティング
+        this.compressor = this.audioContext.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-3, this.audioContext.currentTime); // -3dB threshold
+        this.compressor.knee.setValueAtTime(0, this.audioContext.currentTime); // Hard knee
+        this.compressor.ratio.setValueAtTime(20, this.audioContext.currentTime); // High ratio for limiting
+        this.compressor.attack.setValueAtTime(0.001, this.audioContext.currentTime); // Fast attack
+        this.compressor.release.setValueAtTime(0.1, this.audioContext.currentTime); // Quick release
+        
+        // ハードリミッター（WaveShaper）
+        this.limiter = this.audioContext.createWaveShaper();
+        this.limiter.curve = this.createLimiterCurve(limitThreshold);
+        this.limiter.oversample = '4x';
+        
+        // 接続: compressor -> limiter -> destination
+        this.compressor.connect(this.limiter);
+        this.limiter.connect(this.audioContext.destination);
+        
+        console.log(`Limiter created with threshold: ${limitThreshold.toFixed(3)} (-0.5dB)`);
+    }
+    
+    createLimiterCurve(threshold) {
+        // WaveShaper用のカーブを作成
+        const samples = 65536;
+        const curve = new Float32Array(samples);
+        
+        for (let i = 0; i < samples; i++) {
+            const x = (i * 2) / samples - 1; // -1 to 1の範囲
+            const absX = Math.abs(x);
+            
+            if (absX <= threshold) {
+                // しきい値以下はそのまま
+                curve[i] = x;
+            } else {
+                // しきい値以上はハードリミット
+                curve[i] = Math.sign(x) * threshold;
+            }
+        }
+        
+        return curve;
     }
     
     async preloadAudioFiles() {
@@ -2160,7 +2208,7 @@ class ChordPracticeApp {
         this.settings.volume = parseInt(value);
         this.saveSettings();
         
-        console.log(`Volume updated to ${value}%`);
+        console.log(`Volume updated to ${value}% (${(volume * 5).toFixed(2)}x) with limiter protection`);
     }
     
     noteToString(midiNote) {
