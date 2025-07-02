@@ -2185,11 +2185,6 @@ class ChordPracticeApp {
             this.updateMIDIStatus('このブラウザはWeb MIDI APIに対応していません。Chrome/Edgeを使用してください。', false);
             return;
         }
-        
-        // ロード画面のメッセージを更新
-        if (this.elements.loadingMessage) {
-            this.elements.loadingMessage.textContent = 'MIDIデバイスを初期化中...';
-        }
 
         try {
             console.log('MIDI access を要求中...');
