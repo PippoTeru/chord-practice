@@ -1327,6 +1327,9 @@ h2 {
                     </div>
                     <div class="chord-header">
                         <h3 class="chord-instruction" style="display: none;">この和音を演奏してください</h3>
+                        <div id="velocity-debug" style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; display: none;">
+                            ベロシティレイヤー: <span id="velocity-layer-display">-</span>
+                        </div>
                     </div>
                     <div id="chord-display" class="chord-display">
                         <span id="current-chord">スタートを押してください</span>
@@ -1406,7 +1409,22 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.32';
+    showVelocityDebug(velocityLayer, velocity, volume) {
+        if (this.elements.velocityDebug && this.elements.velocityLayerDisplay) {
+            this.elements.velocityDebug.style.display = 'block';
+            this.elements.velocityLayerDisplay.textContent = `${velocityLayer}/16 (vel:${velocity}, vol:${(volume*100).toFixed(0)}%)`;
+            
+            // 3秒後に自動で非表示
+            clearTimeout(this.velocityDebugTimeout);
+            this.velocityDebugTimeout = setTimeout(() => {
+                if (this.elements.velocityDebug) {
+                    this.elements.velocityDebug.style.display = 'none';
+                }
+            }, 3000);
+        }
+    }
+    
+    static VERSION = '0.1.33';
     
     constructor() {
         this.chords = [
@@ -1499,7 +1517,9 @@ class ChordPracticeApp {
             volumeValue: document.getElementById('volume-value'),
             pedalState: document.getElementById('pedal-state'),
             versionInfo: document.getElementById('version-info'),
-            chordInstruction: document.querySelector('.chord-instruction')
+            chordInstruction: document.querySelector('.chord-instruction'),
+            velocityDebug: document.getElementById('velocity-debug'),
+            velocityLayerDisplay: document.getElementById('velocity-layer-display')
         };
     }
     
@@ -1817,6 +1837,9 @@ class ChordPracticeApp {
         
         // アクティブなソースとして保存
         this.activeSources.set(midiNote, { source, gainNode });
+        
+        // ベロシティレイヤー情報を表示（デバッグ用）
+        this.showVelocityDebug(velocityLayer, velocity, volume);
         
         console.log(`Playing piano note ${midiNote} using velocity layer ${velocityLayer} (vel:${velocity}/127, vol:${(volume*100).toFixed(0)}%) sample ${closestSample}`);
     }
