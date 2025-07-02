@@ -1333,7 +1333,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.9';
+    static VERSION = '0.1.10';
     
     constructor() {
         this.chords = [
@@ -2349,34 +2349,58 @@ class ChordPracticeApp {
     
     async playCorrectAnswerSound() {
         try {
+            console.log('playCorrectAnswerSound開始');
+            
             // 正解音専用のMP3ファイルを使用
             const correctSoundPath = 'mp3/correct001.mp3';
+            console.log('正解音ファイルパス:', correctSoundPath);
+            
+            // オーディオコンテキストの状態を確認
+            if (!this.audioContext) {
+                console.error('オーディオコンテキストが初期化されていません');
+                return;
+            }
+            
+            if (this.audioContext.state === 'suspended') {
+                console.log('オーディオコンテキストを再開します');
+                await this.audioContext.resume();
+            }
             
             // オーディオバッファが既にロードされているかチェック
             if (!this.audioBuffers.has(correctSoundPath)) {
+                console.log('正解音ファイルをロードします');
                 await this.loadSingleAudioFile(correctSoundPath);
             }
             
             const buffer = this.audioBuffers.get(correctSoundPath);
             if (buffer) {
+                console.log('正解音を再生開始');
                 const source = this.audioContext.createBufferSource();
                 source.buffer = buffer;
                 source.connect(this.masterVolume);
                 source.start();
                 
                 console.log('正解音を再生しました');
+            } else {
+                console.error('正解音のオーディオバッファが見つかりません');
             }
         } catch (error) {
-            console.warn('正解音の再生に失敗しました:', error);
+            console.error('正解音の再生に失敗しました:', error);
         }
     }
     
-    correctAnswer() {
+    async correctAnswer() {
         this.score++;
         this.elements.score.textContent = this.score;
         
+        console.log('正解！正解音を再生します');
+        
         // 正解音を自動演奏
-        this.playCorrectAnswerSound();
+        try {
+            await this.playCorrectAnswerSound();
+        } catch (error) {
+            console.error('正解音の再生でエラーが発生:', error);
+        }
         
         this.elements.chordDisplay.classList.add('correct');
         setTimeout(() => {
