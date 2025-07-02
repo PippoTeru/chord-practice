@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.18';
+    static VERSION = '0.1.19';
     
     constructor() {
         this.chords = [
@@ -1509,7 +1509,7 @@ class ChordPracticeApp {
             
             // マスターボリュームコントロール
             this.masterVolume = this.audioContext.createGain();
-            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 4.5, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 5, this.audioContext.currentTime);
             this.masterVolume.connect(this.audioContext.destination);
             
             // WAVファイルをプリロード
@@ -2150,7 +2150,7 @@ class ChordPracticeApp {
     updateVolume(value) {
         const volume = value / 100;
         if (this.masterVolume) {
-            this.masterVolume.gain.setValueAtTime(volume * 4.5, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime(volume * 5, this.audioContext.currentTime);
         }
         if (this.elements.volumeValue) {
             this.elements.volumeValue.textContent = `${value}%`;
@@ -2436,11 +2436,20 @@ class ChordPracticeApp {
     }
     
     nextChord() {
-        this.currentChord = this.chords[Math.floor(Math.random() * this.chords.length)];
+        // 連続して同じコードが出題されないようにする
+        let newChord;
+        do {
+            newChord = this.chords[Math.floor(Math.random() * this.chords.length)];
+        } while (this.currentChord && newChord.name === this.currentChord.name && this.chords.length > 1);
+        
+        this.currentChord = newChord;
         this.elements.currentChord.textContent = this.currentChord.name;
         
         // Reset waiting state to allow new answers
         this.waitingForNextQuestion = false;
+        
+        // コード表示の色を通常に戻す
+        this.elements.currentChord.style.color = '#2d3748';
         
         // 正解フラグをリセット（連続正解防止）
         this.justAnswered = true;
@@ -2507,7 +2516,7 @@ class ChordPracticeApp {
                 console.log('正解音を再生開始');
                 const source = this.audioContext.createBufferSource();
                 const gainNode = this.audioContext.createGain();
-                gainNode.gain.setValueAtTime(0.165, this.audioContext.currentTime); // 音量を3分の1の半分に
+                gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime); // 音量を15%に
                 
                 source.buffer = buffer;
                 source.connect(gainNode);
@@ -2529,6 +2538,9 @@ class ChordPracticeApp {
         
         // Set waiting state to prevent incorrect answers during delay
         this.waitingForNextQuestion = true;
+        
+        // 待機中はコード表示を灰色にする
+        this.elements.currentChord.style.color = '#a0aec0';
         
         console.log('正解！正解音を再生します');
         
