@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.27';
+    static VERSION = '0.1.28';
     
     constructor() {
         this.chords = [
@@ -1679,7 +1679,9 @@ class ChordPracticeApp {
         const noteName = noteNames[midiNote % 12];
         const velocityStr = velocity.toString().padStart(2, '0');
         
-        return `${midiNote.toString().padStart(3, '0')}_${noteName}${octave}v${velocityStr}.mp3`;
+        // #文字をURLエンコードして正しいファイル名を生成
+        const encodedNoteName = encodeURIComponent(noteName);
+        return `${midiNote.toString().padStart(3, '0')}_${encodedNoteName}${octave}v${velocityStr}.mp3`;
     }
     
     findClosestSample(midiNote) {
