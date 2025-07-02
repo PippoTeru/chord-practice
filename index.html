@@ -810,7 +810,7 @@ h2 {
     transform: translate(-50%, -50%);
     width: 200px;
     height: 200px;
-    background: #48bb78;
+    background: #e53e3e;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -819,7 +819,7 @@ h2 {
     color: white;
     font-weight: bold;
     animation: correctPulse 0.6s ease-out;
-    box-shadow: 0 8px 30px rgba(72, 187, 120, 0.5);
+    box-shadow: 0 8px 30px rgba(229, 62, 62, 0.5);
     z-index: 15;
 }
 
@@ -1411,7 +1411,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.12';
+    static VERSION = '0.1.13';
     
     constructor() {
         this.chords = [
@@ -1444,6 +1444,9 @@ class ChordPracticeApp {
         
         // カウントダウン状態管理
         this.countdownInterval = null;
+        
+        // 正解後の待機状態管理
+        this.waitingForNextQuestion = false;
         
         // MIDIメッセージハンドラーを初期化時にバインド
         this.midiMessageHandler = this.onMIDIMessage.bind(this);
@@ -1511,7 +1514,7 @@ class ChordPracticeApp {
             
             // マスターボリュームコントロール
             this.masterVolume = this.audioContext.createGain();
-            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 2, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 3, this.audioContext.currentTime);
             this.masterVolume.connect(this.audioContext.destination);
             
             // WAVファイルをプリロード
@@ -2152,7 +2155,7 @@ class ChordPracticeApp {
     updateVolume(value) {
         const volume = value / 100;
         if (this.masterVolume) {
-            this.masterVolume.gain.setValueAtTime(volume * 2, this.audioContext.currentTime);
+            this.masterVolume.gain.setValueAtTime(volume * 3, this.audioContext.currentTime);
         }
         if (this.elements.volumeValue) {
             this.elements.volumeValue.textContent = `${value}%`;
@@ -2266,6 +2269,7 @@ class ChordPracticeApp {
     resetGameUI() {
         // ゲームの状態をリセット
         this.gameActive = false;
+        this.waitingForNextQuestion = false;
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
@@ -2336,10 +2340,10 @@ class ChordPracticeApp {
                 
                 if (countdown > 0) {
                     this.elements.countdownNumber.textContent = countdown;
+                    // アニメーションを強制的にリセット
                     this.elements.countdownNumber.style.animation = 'none';
-                    setTimeout(() => {
-                        this.elements.countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
-                    }, 10);
+                    this.elements.countdownNumber.offsetHeight; // 強制リフロー
+                    this.elements.countdownNumber.style.animation = 'countdownPulse 1s ease-in-out';
                 } else {
                     clearInterval(this.countdownInterval);
                     this.countdownInterval = null;
@@ -2439,6 +2443,10 @@ class ChordPracticeApp {
     nextChord() {
         this.currentChord = this.chords[Math.floor(Math.random() * this.chords.length)];
         this.elements.currentChord.textContent = this.currentChord.name;
+        
+        // Reset waiting state to allow new answers
+        this.waitingForNextQuestion = false;
+        
         // 正解フラグをリセット（連続正解防止）
         this.justAnswered = true;
         setTimeout(() => {
@@ -2447,7 +2455,7 @@ class ChordPracticeApp {
     }
     
     checkChord() {
-        if (this.pressedKeys.size === 0 || this.justAnswered) return;
+        if (this.pressedKeys.size === 0 || this.justAnswered || this.waitingForNextQuestion) return;
         
         const pressedNotes = Array.from(this.pressedKeys);
         const leftHandNotes = pressedNotes.filter(note => 
@@ -2523,6 +2531,9 @@ class ChordPracticeApp {
     async correctAnswer() {
         this.score++;
         this.elements.score.textContent = this.score;
+        
+        // Set waiting state to prevent incorrect answers during delay
+        this.waitingForNextQuestion = true;
         
         console.log('正解！正解音を再生します');
         
