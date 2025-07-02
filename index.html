@@ -1424,7 +1424,7 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.35';
+    static VERSION = '0.1.36';
     
     constructor() {
         this.chords = [
@@ -1642,11 +1642,15 @@ class ChordPracticeApp {
         
         console.log('Starting to preload piano samples...');
         
-        // 基本的なベロシティレイヤーをプリロード（音が出ない問題を防ぐ）
-        const essentialLayers = [4, 8, 12]; // 軽い、中程度、強い打鍵
+        // すべてのベロシティレイヤーをプリロード（最高の応答性を実現）
+        const allLayers = Array.from({length: 16}, (_, i) => i + 1); // 1-16のすべてのレイヤー
+        let loadedCount = 0;
+        let totalFiles = sampleNotes.length * allLayers.length;
+        
+        console.log(`Preloading ${totalFiles} velocity layer samples...`);
         
         for (const midiNote of sampleNotes) {
-            for (const velocityLayer of essentialLayers) {
+            for (const velocityLayer of allLayers) {
                 try {
                     const fileName = this.getMIDIFileName(midiNote, velocityLayer);
                     const response = await fetch(`mp3/${fileName}`);
@@ -1662,7 +1666,10 @@ class ChordPracticeApp {
                             this.audioBuffers.set(midiNote, audioBuffer);
                         }
                         
-                        console.log(`Loaded velocity layer ${velocityLayer} for note ${midiNote}: ${fileName}`);
+                        loadedCount++;
+                        if (loadedCount % 50 === 0) {
+                            console.log(`Loaded ${loadedCount}/${totalFiles} samples (${((loadedCount/totalFiles)*100).toFixed(1)}%)`);
+                        }
                     } else {
                         console.warn(`Failed to load ${fileName}`);
                     }
@@ -1671,6 +1678,8 @@ class ChordPracticeApp {
                 }
             }
         }
+        
+        console.log(`Preloading complete: ${loadedCount}/${totalFiles} samples loaded`);
         
         console.log(`Preloaded ${this.audioBuffers.size} piano samples`);
     }
@@ -1764,10 +1773,7 @@ class ChordPracticeApp {
             if (audioBuffer) {
                 this.playWAVSample(midiNote, velocity, closestSample, audioBuffer, audioBuffer === this.audioBuffers.get(closestSample) ? 8 : velocityLayer);
                 
-                // 背景で他のベロシティレイヤーをプリロード
-                if (velocityLayer !== 8 && !this.audioBuffers.has(velocityKey)) {
-                    this.preloadVelocityLayerInBackground(closestSample, velocityLayer);
-                }
+                // すべてプリロード済みのため、背景ロードは不要
                 return;
             }
         }
