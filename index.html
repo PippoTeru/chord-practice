@@ -1444,25 +1444,43 @@ class ChordPracticeApp {
     
     async initializeApp() {
         try {
-            // ロード画面を表示
-            this.showLoadingScreen();
-            
-            // オーディオとMIDIを初期化
-            await this.initializeAudio();
-            await this.setupMIDI();
-            
-            // ピアノ鍵盤を作成
-            this.createPianoKeyboard();
-            
-            // 設定を適用
-            this.applySettings();
-            
-            // ロード完了後にメイン画面を表示
-            this.hideLoadingScreen();
+            // 基本的な初期化のみ実行（オーディオサンプルの読み込みは除く）
+            await this.initializeBasics();
             
         } catch (error) {
             console.error('Initialization failed:', error);
-            this.elements.loadingMessage.textContent = '初期化に失敗しました。ページをリロードしてください。';
+            alert('初期化に失敗しました。ページをリロードしてください。');
+        }
+    }
+    
+    async initializeBasics() {
+        // MIDIのみ初期化
+        await this.setupMIDI();
+        
+        // ピアノ鍵盤を作成
+        this.createPianoKeyboard();
+        
+        // 設定を適用
+        this.applySettings();
+    }
+    
+    async initializeAudioForGame() {
+        try {
+            // ロード画面を表示
+            this.showLoadingScreen();
+            
+            // オーディオコンテキストとサンプルを初期化
+            await this.initializeAudio();
+            
+            // ロード完了後にロード画面を非表示
+            this.hideLoadingScreen();
+            
+            return true;
+        } catch (error) {
+            console.error('Audio initialization failed:', error);
+            this.hideLoadingScreen();
+            alert('オーディオの初期化に失敗しました。');
+            return false;
         }
     }
     
@@ -1522,7 +1540,7 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.39';
+    static VERSION = '0.1.40';
     
     constructor() {
         this.chords = [
@@ -2626,6 +2644,14 @@ class ChordPracticeApp {
     }
     
     async startGame() {
+        // オーディオが未初期化の場合は初期化を実行
+        if (!this.audioContext || !this.audioBuffers || this.audioBuffers.size === 0) {
+            const success = await this.initializeAudioForGame();
+            if (!success) {
+                return; // 初期化失敗時はゲームを開始しない
+            }
+        }
+        
         this.elements.startBtn.style.display = 'none';
         this.elements.restartBtn.style.display = 'inline-block';
         this.elements.resultArea.style.display = 'none';
