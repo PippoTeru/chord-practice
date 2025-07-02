@@ -338,6 +338,14 @@ h2 {
     font-style: italic;
 }
 
+.version-info {
+    color: #a0aec0;
+    font-size: 0.8em;
+    margin: 8px 0 0 0;
+    font-family: 'Courier New', monospace;
+    opacity: 0.7;
+}
+
 .secondary-btn {
     background: linear-gradient(135deg, #718096, #4a5568);
     color: white;
@@ -1017,6 +1025,7 @@ h2 {
             </div>
             <div class="title-footer">
                 <p class="description">MIDIキーボードでコードを演奏して練習しよう</p>
+                <p class="version-info" id="version-info">v0.1.0</p>
             </div>
         </div>
 
@@ -1233,6 +1242,9 @@ h2 {
 
     <script>
 class ChordPracticeApp {
+    // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
+    static VERSION = '0.1.0';
+    
     constructor() {
         this.chords = [
             { name: 'C', notes: [0, 4, 7] },      // C major
@@ -1305,7 +1317,8 @@ class ChordPracticeApp {
             statusIndicator: document.getElementById('status-indicator'),
             volumeSlider: document.getElementById('volume-slider'),
             volumeValue: document.getElementById('volume-value'),
-            pedalState: document.getElementById('pedal-state')
+            pedalState: document.getElementById('pedal-state'),
+            versionInfo: document.getElementById('version-info')
         };
     }
     
@@ -1921,6 +1934,11 @@ class ChordPracticeApp {
         if (this.elements.pedalState) {
             this.elements.pedalState.textContent = 'OFF';
             this.elements.pedalState.className = 'pedal-state off';
+        }
+        
+        // バージョン情報の設定
+        if (this.elements.versionInfo) {
+            this.elements.versionInfo.textContent = `v${ChordPracticeApp.VERSION}`;
         }
     }
     
