@@ -2513,11 +2513,11 @@ class ChordPracticeApp {
         });
         
         // 画面遷移のイベントリスナー
-        this.elements.gameStartBtn.addEventListener('click', () => this.showGameScreen());
+        this.elements.gameStartBtn.addEventListener('click', async () => await this.showGameScreen());
         this.elements.settingsBtn.addEventListener('click', () => this.showSettingsScreen());
         this.elements.backToTitleBtn.addEventListener('click', () => this.showTitleScreen());
         this.elements.backToTitleFromGameBtn.addEventListener('click', () => this.showTitleScreen());
-        this.elements.goToGameBtn.addEventListener('click', () => this.showGameScreen());
+        this.elements.goToGameBtn.addEventListener('click', async () => await this.showGameScreen());
         
         // ウィンドウリサイズイベントリスナー
         window.addEventListener('resize', () => this.handleWindowResize());
@@ -2569,7 +2569,7 @@ class ChordPracticeApp {
         this.updateGameButtonVisibility();
     }
     
-    showGameScreen() {
+    async showGameScreen() {
         // MIDIデバイスが実際に接続されているかチェック
         // ローカルストレージに情報があっても、実際のデバイス接続を確認
         let hasConnectedDevice = false;
@@ -2588,6 +2588,16 @@ class ChordPracticeApp {
         this.elements.titleScreen.style.display = 'none';
         this.elements.settingsScreen.style.display = 'none';
         this.elements.gameScreen.style.display = 'block';
+        
+        // オーディオが未初期化の場合は初期化を実行（初回ゲーム画面遷移時）
+        if (!this.audioContext || !this.audioBuffers || this.audioBuffers.size === 0) {
+            const success = await this.initializeAudioForGame();
+            if (!success) {
+                // 初期化失敗時はタイトル画面に戻る
+                this.showTitleScreen();
+                return;
+            }
+        }
         
         // ゲームUIの状態をリセット
         this.resetGameUI();
@@ -2642,14 +2652,6 @@ class ChordPracticeApp {
     }
     
     async startGame() {
-        // オーディオが未初期化の場合は初期化を実行
-        if (!this.audioContext || !this.audioBuffers || this.audioBuffers.size === 0) {
-            const success = await this.initializeAudioForGame();
-            if (!success) {
-                return; // 初期化失敗時はゲームを開始しない
-            }
-        }
-        
         this.elements.startBtn.style.display = 'none';
         this.elements.restartBtn.style.display = 'inline-block';
         this.elements.resultArea.style.display = 'none';
