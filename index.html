@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.20';
+    static VERSION = '0.1.21';
     
     constructor() {
         this.chords = [
@@ -2564,7 +2564,7 @@ class ChordPracticeApp {
                 console.log('正解音を再生開始');
                 const source = this.audioContext.createBufferSource();
                 const gainNode = this.audioContext.createGain();
-                gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime); // 音量を15%に
+                gainNode.gain.setValueAtTime(0.10, this.audioContext.currentTime); // 音量を10%に
                 
                 source.buffer = buffer;
                 source.connect(gainNode);
