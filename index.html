@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.25';
+    static VERSION = '0.1.26';
     
     constructor() {
         this.chords = [
@@ -1624,12 +1624,17 @@ class ChordPracticeApp {
         
         for (const midiNote of sampleNotes) {
             try {
-                // ベロシティ08のファイルを基本として使用（中程度の音量）
-                const fileName = this.getMIDIFileName(midiNote, 8);
+                // ベロシティ08のファイルを基本としてプリロード（中程度の音量）
+                const velocityLayer = 8;
+                const fileName = this.getMIDIFileName(midiNote, velocityLayer);
                 const response = await fetch(`mp3/${fileName}`);
                 if (response.ok) {
                     const arrayBuffer = await response.arrayBuffer();
                     const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                    // 新しいキー形式で保存
+                    const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
+                    this.audioBuffers.set(velocityKey, audioBuffer);
+                    // 後方互換性のため古いキーでも保存
                     this.audioBuffers.set(midiNote, audioBuffer);
                     console.log(`Loaded sample for note ${midiNote}: ${fileName}`);
                 } else {
@@ -1691,8 +1696,18 @@ class ChordPracticeApp {
         return 440 * Math.pow(2, (midiNote - 69) / 12);
     }
     
+    // ベロシティから適切なレイヤー番号を計算（曲線的マッピング）
+    getVelocityLayer(velocity) {
+        // 0-127のベロシティを1-16のレイヤーに曲線的にマッピング
+        // より強い打鍵でより高いレイヤーに到達しやすくする
+        const normalizedVel = velocity / 127; // 0-1に正規化
+        const curved = Math.pow(normalizedVel, 0.6); // 0.6乗で曲線的に
+        const layer = Math.floor(curved * 15) + 1; // 1-16のレイヤー
+        return Math.max(1, Math.min(16, layer));
+    }
+    
     // WAVサンプルでピアノ音を再生
-    playNote(midiNote, velocity = 127) {
+    async playNote(midiNote, velocity = 127) {
         if (!this.audioContext) return;
         
         // AudioContextが停止状態の場合、再開
@@ -1703,12 +1718,29 @@ class ChordPracticeApp {
         // 既存の音を停止
         this.stopNote(midiNote);
         
-        // WAVサンプルが利用可能かチェック
+        // ベロシティに応じて適切なレイヤーを選択
+        const velocityLayer = this.getVelocityLayer(velocity);
+        
+        // 適切なベロシティレイヤーのサンプルを探す
         const closestSample = this.findClosestSample(midiNote);
         if (closestSample) {
-            const audioBuffer = this.audioBuffers.get(closestSample);
+            // 動的にベロシティレイヤーをロード
+            const velocityKey = `${closestSample}_v${velocityLayer.toString().padStart(2, '0')}`;
+            let audioBuffer = this.audioBuffers.get(velocityKey);
+            
+            if (!audioBuffer) {
+                // ベロシティレイヤーが未ロードの場合、動的にロード
+                try {
+                    const fileName = this.getMIDIFileName(closestSample, velocityLayer);
+                    await this.loadVelocityLayer(closestSample, velocityLayer, fileName);
+                    audioBuffer = this.audioBuffers.get(velocityKey);
+                } catch (error) {
+                    console.warn(`Failed to load velocity layer ${velocityLayer} for note ${closestSample}:`, error);
+                }
+            }
+            
             if (audioBuffer) {
-                this.playWAVSample(midiNote, velocity, closestSample, audioBuffer);
+                this.playWAVSample(midiNote, velocity, closestSample, audioBuffer, velocityLayer);
                 return;
             }
         }
@@ -1718,7 +1750,25 @@ class ChordPracticeApp {
         this.playFallbackTone(midiNote, velocity);
     }
     
-    playWAVSample(midiNote, velocity, closestSample, audioBuffer) {
+    async loadVelocityLayer(midiNote, velocityLayer, fileName) {
+        try {
+            const response = await fetch(`mp3/${fileName}`);
+            if (response.ok) {
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                const velocityKey = `${midiNote}_v${velocityLayer.toString().padStart(2, '0')}`;
+                this.audioBuffers.set(velocityKey, audioBuffer);
+                console.log(`Loaded velocity layer ${velocityLayer} for note ${midiNote}: ${fileName}`);
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
+        } catch (error) {
+            console.warn(`Error loading velocity layer: ${error}`);
+            throw error;
+        }
+    }
+    
+    playWAVSample(midiNote, velocity, closestSample, audioBuffer, velocityLayer = 8) {
         const now = this.audioContext.currentTime;
         
         // AudioBufferSourceNodeを作成
@@ -1732,8 +1782,9 @@ class ChordPracticeApp {
         const playbackRate = Math.pow(2, semitoneShift / 12);
         source.playbackRate.setValueAtTime(playbackRate, now);
         
-        // ベロシティに基づく音量調整
-        const volume = (velocity / 127) * 0.4;
+        // ベロシティレイヤーを考慮した音量調整（より細かい制御）
+        const normalizedVel = velocity / 127;
+        const volume = Math.pow(normalizedVel, 0.7) * 0.5; // 曲線的な音量変化
         gainNode.gain.setValueAtTime(volume, now);
         
         // 接続
@@ -1746,7 +1797,7 @@ class ChordPracticeApp {
         // アクティブなソースとして保存
         this.activeSources.set(midiNote, { source, gainNode });
         
-        console.log(`Playing piano note ${midiNote} using WAV sample ${closestSample} (pitch shift: ${semitoneShift} semitones)`);
+        console.log(`Playing piano note ${midiNote} using velocity layer ${velocityLayer} (${velocity}/127) sample ${closestSample}`);
     }
     
     playFallbackTone(midiNote, velocity) {
@@ -1787,13 +1838,13 @@ class ChordPracticeApp {
             const now = this.audioContext.currentTime;
             
             try {
-                // より自然なフェードアウト（ピアノの減衰をシミュレート）
+                // より短い減衰時間で自然なフェードアウト
                 gainNode.gain.cancelScheduledValues(now);
                 gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.8); // 0.8秒でフェード
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3); // 0.3秒でフェード
                 
                 // リバーブテールを考慮して遅延停止
-                source.stop(now + 1.2);
+                source.stop(now + 0.5);
             } catch (error) {
                 // 既に停止している場合のエラーを無視
                 console.warn(`Error stopping note ${midiNote}:`, error);
