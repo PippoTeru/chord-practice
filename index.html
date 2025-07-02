@@ -1406,6 +1406,24 @@ h2 {
         </div>
     </div>
 
+    <!-- ロード画面 -->
+    <div id="loading-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;">
+        <div style="text-align: center; max-width: 600px; padding: 40px;">
+            <h1 style="font-size: 3em; margin-bottom: 20px; font-weight: 300;">コード練習アプリ</h1>
+            <div style="margin-bottom: 40px;">
+                <div id="loading-message" style="font-size: 1.2em; margin-bottom: 20px;">ピアノサンプルを読み込み中...</div>
+                <div id="loading-progress-container" style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 10px; margin-bottom: 20px;">
+                    <div id="loading-progress-bar" style="height: 20px; background: linear-gradient(90deg, #4CAF50, #8BC34A); border-radius: 10px; width: 0%; transition: width 0.3s ease;"></div>
+                </div>
+                <div id="loading-details" style="font-size: 0.9em; opacity: 0.8;">0 / 480 ファイル (0%)</div>
+            </div>
+            <div style="font-size: 0.9em; opacity: 0.7; line-height: 1.5;">
+                すべてのベロシティレイヤーを読み込んで、最高の音質と応答性を実現します。<br>
+                初回読み込みには数分かかりますが、しばらくお待ちください。
+            </div>
+        </div>
+    </div>
+
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
@@ -1424,7 +1442,59 @@ class ChordPracticeApp {
         }
     }
     
-    static VERSION = '0.1.36';
+    async initializeApp() {
+        try {
+            // ロード画面を表示
+            this.showLoadingScreen();
+            
+            // オーディオとMIDIを初期化
+            await this.initializeAudio();
+            await this.setupMIDI();
+            
+            // ピアノ鍵盤を作成
+            this.createPianoKeyboard();
+            
+            // 設定を適用
+            this.applySettings();
+            
+            // ロード完了後にメイン画面を表示
+            this.hideLoadingScreen();
+            
+        } catch (error) {
+            console.error('Initialization failed:', error);
+            this.elements.loadingMessage.textContent = '初期化に失敗しました。ページをリロードしてください。';
+        }
+    }
+    
+    showLoadingScreen() {
+        if (this.elements.loadingScreen) {
+            this.elements.loadingScreen.style.display = 'flex';
+        }
+    }
+    
+    hideLoadingScreen() {
+        if (this.elements.loadingScreen) {
+            this.elements.loadingScreen.style.display = 'none';
+        }
+    }
+    
+    updateLoadingProgress(loaded, total, currentFile = '') {
+        const percentage = Math.round((loaded / total) * 100);
+        
+        if (this.elements.loadingProgressBar) {
+            this.elements.loadingProgressBar.style.width = `${percentage}%`;
+        }
+        
+        if (this.elements.loadingDetails) {
+            this.elements.loadingDetails.textContent = `${loaded} / ${total} ファイル (${percentage}%)`;
+        }
+        
+        if (currentFile && this.elements.loadingMessage) {
+            this.elements.loadingMessage.textContent = `読み込み中: ${currentFile}`;
+        }
+    }
+    
+    static VERSION = '0.1.37';
     
     constructor() {
         this.chords = [
@@ -1473,13 +1543,10 @@ class ChordPracticeApp {
         this.settings = this.loadSettings();
         
         this.initializeElements();
-        this.initializeAudio();
-        this.createPianoKeyboard();
-        this.setupMIDI();
         this.setupEventListeners();
         
-        // 設定を適用
-        this.applySettings();
+        // 非同期で初期化を実行
+        this.initializeApp();
     }
     
     initializeElements() {
@@ -1519,11 +1586,15 @@ class ChordPracticeApp {
             versionInfo: document.getElementById('version-info'),
             chordInstruction: document.querySelector('.chord-instruction'),
             velocityDebug: document.getElementById('velocity-debug'),
-            velocityLayerDisplay: document.getElementById('velocity-layer-display')
+            velocityLayerDisplay: document.getElementById('velocity-layer-display'),
+            loadingScreen: document.getElementById('loading-screen'),
+            loadingMessage: document.getElementById('loading-message'),
+            loadingProgressBar: document.getElementById('loading-progress-bar'),
+            loadingDetails: document.getElementById('loading-details')
         };
     }
     
-    initializeAudio() {
+    async initializeAudio() {
         try {
             // AudioContextを作成（ユーザー操作後に初期化）
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1536,12 +1607,14 @@ class ChordPracticeApp {
             this.masterVolume.gain.setValueAtTime((this.settings.volume / 100) * 3, this.audioContext.currentTime);
             this.masterVolume.connect(this.compressor);
             
-            // WAVファイルをプリロード
-            this.preloadAudioFiles();
-            
             console.log('Audio context initialized with limiter');
+            
+            // WAVファイルをプリロード（ロード画面で進行状況を表示）
+            await this.preloadAudioFiles();
+            
         } catch (error) {
             console.error('Failed to initialize audio context:', error);
+            throw error;
         }
     }
     
@@ -1667,6 +1740,10 @@ class ChordPracticeApp {
                         }
                         
                         loadedCount++;
+                        
+                        // ロード画面の進行状況を更新
+                        this.updateLoadingProgress(loadedCount, totalFiles, fileName);
+                        
                         if (loadedCount % 50 === 0) {
                             console.log(`Loaded ${loadedCount}/${totalFiles} samples (${((loadedCount/totalFiles)*100).toFixed(1)}%)`);
                         }
@@ -2050,6 +2127,11 @@ class ChordPracticeApp {
         if (!navigator.requestMIDIAccess) {
             this.updateMIDIStatus('このブラウザはWeb MIDI APIに対応していません。Chrome/Edgeを使用してください。', false);
             return;
+        }
+        
+        // ロード画面のメッセージを更新
+        if (this.elements.loadingMessage) {
+            this.elements.loadingMessage.textContent = 'MIDIデバイスを初期化中...';
         }
 
         try {
