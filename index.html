@@ -802,6 +802,61 @@ h2 {
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
 }
 
+.result-display {
+    text-align: center;
+    padding: 30px 20px;
+    background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%);
+    border-radius: 15px;
+    border: 2px solid #38a169;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(56, 161, 105, 0.15);
+}
+
+.result-display .result-icon {
+    font-size: 2.5em;
+    margin-bottom: 15px;
+}
+
+.result-display .result-title {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #2d3748;
+    margin-bottom: 20px;
+}
+
+.result-display .final-score-display {
+    margin-bottom: 15px;
+}
+
+.result-display .score-label {
+    font-size: 1em;
+    color: #4a5568;
+    margin-bottom: 8px;
+}
+
+.result-display .score-number {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+}
+
+.result-display .score-number span:first-child {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #38a169;
+}
+
+.result-display .score-unit {
+    font-size: 1.2em;
+    color: #4a5568;
+}
+
+.result-display .result-message {
+    color: #4a5568;
+    font-size: 1.1em;
+}
+
 #current-chord {
     font-size: 4em;
     font-weight: bold;
@@ -822,31 +877,63 @@ h2 {
 .hand-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 8px;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
     background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    font-size: 0.9em;
+    border: 2px solid #e2e8f0;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+    font-size: 1em;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    min-width: 160px;
+}
+
+.hand-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
 }
 
 .left-hand {
-    border-left: 3px solid #3182ce;
+    border: 2px solid #3182ce;
+    background: linear-gradient(135deg, #ebf8ff 0%, #bee3f8 100%);
+    color: #2c5282;
+}
+
+.left-hand .hand-icon {
+    background: #3182ce;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
 }
 
 .right-hand {
-    border-left: 3px solid #38a169;
+    border: 2px solid #38a169;
+    background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
+    color: #276749;
 }
 
-.hand-icon {
-    font-size: 1.1em;
+.right-hand .hand-icon {
+    background: #38a169;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
 }
+
 
 .hand-text {
-    font-size: 0.9em;
-    font-weight: 500;
-    color: #4a5568;
+    font-weight: 600;
+    flex: 1;
 }
 
 .game-controls {
@@ -1198,6 +1285,20 @@ h2 {
                     <div id="chord-display" class="chord-display">
                         <span id="current-chord">スタートを押してください</span>
                     </div>
+                    <div id="result-display" class="result-display" style="display: none;">
+                        <div class="result-icon">🎉</div>
+                        <h3 class="result-title">ゲーム終了！</h3>
+                        <div class="final-score-display">
+                            <div class="score-label">最終スコア</div>
+                            <div class="score-number">
+                                <span id="final-score-inline">0</span>
+                                <span class="score-unit">問正解</span>
+                            </div>
+                        </div>
+                        <div class="result-message">
+                            <span id="result-message-inline">お疲れさまでした！</span>
+                        </div>
+                    </div>
                     <div class="game-controls">
                         <button id="start-btn" class="btn game-btn start-btn">
                             <span class="btn-icon">▶️</span>
@@ -1234,10 +1335,9 @@ h2 {
 
             <div id="piano-display" class="piano-display">
                 <div class="piano-header">
-                    <h4 class="piano-title">
+                    <div class="piano-title">
                         <span class="piano-icon">🎹</span>
-                        MIDI キーボード
-                    </h4>
+                    </div>
                 </div>
                 <div class="chord-info">
                     <div class="hand-info">
@@ -1261,7 +1361,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.4';
+    static VERSION = '0.1.5';
     
     constructor() {
         this.chords = [
@@ -1323,6 +1423,9 @@ class ChordPracticeApp {
             gameArea: document.getElementById('game-area'),
             resultArea: document.getElementById('result-area'),
             finalScore: document.getElementById('final-score'),
+            resultDisplay: document.getElementById('result-display'),
+            finalScoreInline: document.getElementById('final-score-inline'),
+            resultMessageInline: document.getElementById('result-message-inline'),
             midiMessage: document.getElementById('midi-message'),
             midiStatus: document.getElementById('midi-status'),
             chordDisplay: document.getElementById('chord-display'),
@@ -2093,6 +2196,10 @@ class ChordPracticeApp {
         this.elements.restartBtn.style.display = 'inline-block';
         this.elements.resultArea.style.display = 'none';
         
+        // インライン結果表示を隠して和音表示を表示
+        this.elements.resultDisplay.style.display = 'none';
+        this.elements.chordDisplay.style.display = 'block';
+        
         this.generateRandomRange();
         this.nextChord();
         this.startTimer();
@@ -2112,9 +2219,22 @@ class ChordPracticeApp {
         
         this.elements.startBtn.style.display = 'inline-block';
         this.elements.restartBtn.style.display = 'none';
-        this.elements.resultArea.style.display = 'block';
-        this.elements.finalScore.textContent = this.score;
-        this.elements.currentChord.textContent = 'ゲーム終了';
+        
+        // 和音表示を隠してインライン結果表示を表示
+        this.elements.chordDisplay.style.display = 'none';
+        this.elements.resultDisplay.style.display = 'block';
+        this.elements.finalScoreInline.textContent = this.score;
+        
+        // 結果メッセージを設定
+        let message = 'お疲れさまでした！';
+        if (this.score >= 15) {
+            message = '素晴らしい！完璧な演奏です！';
+        } else if (this.score >= 10) {
+            message = 'とても良い演奏でした！';
+        } else if (this.score >= 5) {
+            message = '良い調子です！';
+        }
+        this.elements.resultMessageInline.textContent = message;
     }
     
     startTimer() {
