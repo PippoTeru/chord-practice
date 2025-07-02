@@ -1406,7 +1406,7 @@ h2 {
     <script>
 class ChordPracticeApp {
     // バージョン情報（デプロイ時に最後の桁を増加: 0.1.0 -> 0.1.1 -> 0.1.2...）
-    static VERSION = '0.1.28';
+    static VERSION = '0.1.29';
     
     constructor() {
         this.chords = [
@@ -1705,13 +1705,16 @@ class ChordPracticeApp {
         return 440 * Math.pow(2, (midiNote - 69) / 12);
     }
     
-    // ベロシティから適切なレイヤー番号を計算（曲線的マッピング）
+    // ベロシティから適切なレイヤー番号を計算（直線的マッピング）
     getVelocityLayer(velocity) {
-        // 0-127のベロシティを1-16のレイヤーに曲線的にマッピング
-        // より強い打鍵でより高いレイヤーに到達しやすくする
-        const normalizedVel = velocity / 127; // 0-1に正規化
-        const curved = Math.pow(normalizedVel, 0.6); // 0.6乗で曲線的に
-        const layer = Math.floor(curved * 15) + 1; // 1-16のレイヤー
+        // 30-110のベロシティを1-16のレイヤーに直線的にマッピング
+        const minVel = 30;
+        const maxVel = 110;
+        const clampedVel = Math.max(minVel, Math.min(maxVel, velocity));
+        
+        // 30-110を 1-16にマッピング（直線的）
+        const normalizedVel = (clampedVel - minVel) / (maxVel - minVel); // 0-1に正規化
+        const layer = Math.floor(normalizedVel * 15) + 1; // 1-16のレイヤー
         return Math.max(1, Math.min(16, layer));
     }
     
@@ -1794,9 +1797,9 @@ class ChordPracticeApp {
         const playbackRate = Math.pow(2, semitoneShift / 12);
         source.playbackRate.setValueAtTime(playbackRate, now);
         
-        // ベロシティレイヤーを考慮した音量調整（より細かい制御）
+        // ベロシティに基づく直線的な音量調整
         const normalizedVel = velocity / 127;
-        const volume = Math.pow(normalizedVel, 0.7) * 0.5; // 曲線的な音量変化
+        const volume = normalizedVel * 0.5; // 直線的な音量変化
         gainNode.gain.setValueAtTime(volume, now);
         
         // 接続
